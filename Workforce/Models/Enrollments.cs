@@ -1,4 +1,8 @@
-﻿namespace Workforce.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Workforce.Models;
+
+namespace Workforce.Models
 {
     public enum Grade
     {
@@ -10,6 +14,7 @@
         public int EnrollmentID { get; set; }
         public int CourseID { get; set; }
         public int StudentID { get; set; }
+        [DisplayFormat(NullDisplayText = "No grade")]
         public Grade? Grade { get; set; }
 
         public Course Course { get; set; }
