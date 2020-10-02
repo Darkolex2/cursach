@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace Workforce.Migrations
 {
-    public partial class init : Migration
+    public partial class InitialCreate : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -46,7 +46,8 @@ namespace Workforce.Migrations
                     Name = table.Column<string>(maxLength: 50, nullable: true),
                     Budget = table.Column<decimal>(type: "money", nullable: false),
                     StartDate = table.Column<DateTime>(nullable: false),
-                    InstructorID = table.Column<int>(nullable: true)
+                    InstructorID = table.Column<int>(nullable: true),
+                    RowVersion = table.Column<byte[]>(rowVersion: true, nullable: true)
                 },
                 constraints: table =>
                 {

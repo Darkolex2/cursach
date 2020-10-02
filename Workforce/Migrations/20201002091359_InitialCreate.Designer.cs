@@ -10,8 +10,8 @@ using Workforce.Data;
 namespace Workforce.Migrations
 {
     [DbContext(typeof(SchoolContext))]
-    [Migration("20201002055450_RowVer")]
-    partial class RowVer
+    [Migration("20201002091359_InitialCreate")]
+    partial class InitialCreate
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
