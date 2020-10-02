@@ -10,8 +10,8 @@ using Workforce.Data;
 namespace Workforce.Migrations
 {
     [DbContext(typeof(SchoolContext))]
-    [Migration("20201001235348_ComplexDataModel")]
-    partial class ComplexDataModel
+    [Migration("20201002055450_RowVer")]
+    partial class RowVer
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
@@ -74,6 +74,11 @@ namespace Workforce.Migrations
                     b.Property<string>("Name")
                         .HasColumnType("nvarchar(50)")
                         .HasMaxLength(50);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
