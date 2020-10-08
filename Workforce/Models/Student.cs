@@ -14,5 +14,6 @@ namespace Workforce.Models
 
 
         public ICollection<Enrollment> Enrollments { get; set; }
+        
     }
 }
