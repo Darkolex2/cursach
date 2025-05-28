@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -10,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Workforce.Data;
 
 namespace Workforce
@@ -39,7 +37,8 @@ namespace Workforce
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        // Додано IServiceProvider і ILogger для перевірки БД
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IServiceProvider serviceProvider, ILogger<Startup> logger)
         {
             if (env.IsDevelopment())
             {
@@ -48,7 +47,6 @@ namespace Workforce
             else
             {
                 app.UseExceptionHandler("/Home/Error");
-                // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
             app.UseHttpsRedirection();
@@ -64,6 +62,24 @@ namespace Workforce
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
             });
+
+            // Перевірка підключення до бази при запуску
+            try
+            {
+                var context = serviceProvider.GetRequiredService<SchoolContext>();
+                if (context.Database.CanConnect())
+                {
+                    logger.LogInformation("Успішне підключення до бази даних.");
+                }
+                else
+                {
+                    logger.LogWarning("Неможливо підключитись до бази даних.");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Помилка при спробі підключення до бази даних.");
+            }
         }
     }
 }
