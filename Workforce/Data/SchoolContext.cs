@@ -17,6 +17,8 @@ namespace Workforce.Data
         public DbSet<OfficeAssignment> OfficeAssignments { get; set; }
         public DbSet<CourseAssignment> CourseAssignments { get; set; }
         public DbSet<Person> People { get; set; }
+        public DbSet<TestResult> TestResults { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

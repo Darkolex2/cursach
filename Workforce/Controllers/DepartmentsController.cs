@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
@@ -22,31 +21,23 @@ namespace Workforce.Controllers
         // GET: Departments
         public async Task<IActionResult> Index()
         {
-            var schoolContext = _context.Departments.Include(d => d.Administrator);
-            return View(await schoolContext.ToListAsync());
+            var departments = await _context.Departments.Include(d => d.Administrator).ToListAsync();
+            return View(departments);
         }
 
         // GET: Departments/Details/5
         public async Task<IActionResult> Details(int? id)
         {
             if (id == null)
-            {
                 return NotFound();
-            }
 
-            string query = "SELECT * FROM Department WHERE DepartmentID = {0}";
             var department = await _context.Departments
-                .FromSqlRaw(query, id)
+                .FromSqlRaw("SELECT * FROM Department WHERE DepartmentID = {0}", id)
                 .Include(d => d.Administrator)
                 .AsNoTracking()
                 .FirstOrDefaultAsync();
 
-            if (department == null)
-            {
-                return NotFound();
-            }
-
-            return View(department);
+            return department == null ? NotFound() : View(department);
         }
 
         // GET: Departments/Create
@@ -57,8 +48,6 @@ namespace Workforce.Controllers
         }
 
         // POST: Departments/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("DepartmentID,Name,Budget,StartDate,InstructorID,RowVersion")] Department department)
@@ -77,49 +66,41 @@ namespace Workforce.Controllers
         public async Task<IActionResult> Edit(int? id)
         {
             if (id == null)
-            {
                 return NotFound();
-            }
 
             var department = await _context.Departments.FindAsync(id);
             if (department == null)
-            {
                 return NotFound();
-            }
+
             ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FullName", department.InstructorID);
             return View(department);
         }
 
         // POST: Departments/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int? id, byte[] rowVersion)
         {
             if (id == null)
-            {
                 return NotFound();
-            }
 
-            var departmentToUpdate = await _context.Departments.Include(i => i.Administrator).FirstOrDefaultAsync(m => m.DepartmentID == id);
+            var departmentToUpdate = await _context.Departments
+                .Include(d => d.Administrator)
+                .FirstOrDefaultAsync(m => m.DepartmentID == id);
 
             if (departmentToUpdate == null)
             {
-                Department deletedDepartment = new Department();
-                await TryUpdateModelAsync(deletedDepartment);
-                ModelState.AddModelError(string.Empty,
-                    "Unable to save changes. The department was deleted by another user.");
-                ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FullName", deletedDepartment.InstructorID);
-                return View(deletedDepartment);
+                Department deleted = new Department();
+                await TryUpdateModelAsync(deleted);
+                ModelState.AddModelError(string.Empty, "Unable to save changes. The department was deleted by another user.");
+                ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FullName", deleted.InstructorID);
+                return View(deleted);
             }
 
             _context.Entry(departmentToUpdate).Property("RowVersion").OriginalValue = rowVersion;
 
-            if (await TryUpdateModelAsync<Department>(
-                departmentToUpdate,
-                "",
-                s => s.Name, s => s.StartDate, s => s.Budget, s => s.InstructorID))
+            if (await TryUpdateModelAsync(departmentToUpdate, "",
+                d => d.Name, d => d.Budget, d => d.StartDate, d => d.InstructorID))
             {
                 try
                 {
@@ -128,79 +109,66 @@ namespace Workforce.Controllers
                 }
                 catch (DbUpdateConcurrencyException ex)
                 {
-                    var exceptionEntry = ex.Entries.Single();
-                    var clientValues = (Department)exceptionEntry.Entity;
-                    var databaseEntry = exceptionEntry.GetDatabaseValues();
-                    if (databaseEntry == null)
+                    var entry = ex.Entries.Single();
+                    var clientValues = (Department)entry.Entity;
+                    var dbValues = await entry.GetDatabaseValuesAsync();
+
+                    if (dbValues == null)
                     {
-                        ModelState.AddModelError(string.Empty,
-                            "Unable to save changes. The department was deleted by another user.");
+                        ModelState.AddModelError(string.Empty, "Unable to save changes. The department was deleted by another user.");
                     }
                     else
                     {
-                        var databaseValues = (Department)databaseEntry.ToObject();
+                        var databaseValues = (Department)dbValues.ToObject();
 
                         if (databaseValues.Name != clientValues.Name)
-                        {
                             ModelState.AddModelError("Name", $"Current value: {databaseValues.Name}");
-                        }
                         if (databaseValues.Budget != clientValues.Budget)
-                        {
                             ModelState.AddModelError("Budget", $"Current value: {databaseValues.Budget:c}");
-                        }
                         if (databaseValues.StartDate != clientValues.StartDate)
-                        {
                             ModelState.AddModelError("StartDate", $"Current value: {databaseValues.StartDate:d}");
-                        }
                         if (databaseValues.InstructorID != clientValues.InstructorID)
                         {
-                            Instructor databaseInstructor = await _context.Instructors.FirstOrDefaultAsync(i => i.ID == databaseValues.InstructorID);
-                            ModelState.AddModelError("InstructorID", $"Current value: {databaseInstructor?.FullName}");
+                            var instructor = await _context.Instructors
+                                .FirstOrDefaultAsync(i => i.ID == databaseValues.InstructorID);
+                            ModelState.AddModelError("InstructorID", $"Current value: {instructor?.FullName}");
                         }
 
-                        ModelState.AddModelError(string.Empty, "The record you attempted to edit "
-                                + "was modified by another user after you got the original value. The "
-                                + "edit operation was canceled and the current values in the database "
-                                + "have been displayed. If you still want to edit this record, click "
-                                + "the Save button again. Otherwise click the Back to List hyperlink.");
+                        ModelState.AddModelError(string.Empty, "The record was modified by another user after you got the original values. " +
+                            "If you still want to save your changes, click Save again. Otherwise, click Back to List.");
+
                         departmentToUpdate.RowVersion = (byte[])databaseValues.RowVersion;
                         ModelState.Remove("RowVersion");
                     }
                 }
             }
+
             ViewData["InstructorID"] = new SelectList(_context.Instructors, "ID", "FullName", departmentToUpdate.InstructorID);
             return View(departmentToUpdate);
         }
 
         // GET: Departments/Delete/5
-        public async Task<IActionResult> Delete(int? id, bool? concurrencyError)
+        public async Task<IActionResult> Delete(int? id, bool? concurrencyError = false)
         {
             if (id == null)
-            {
                 return NotFound();
-            }
 
             var department = await _context.Departments
                 .Include(d => d.Administrator)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.DepartmentID == id);
+
             if (department == null)
             {
                 if (concurrencyError.GetValueOrDefault())
-                {
                     return RedirectToAction(nameof(Index));
-                }
                 return NotFound();
             }
 
             if (concurrencyError.GetValueOrDefault())
             {
-                ViewData["ConcurrencyErrorMessage"] = "The record you attempted to delete "
-                                                      + "was modified by another user after you got the original values. "
-                                                      + "The delete operation was canceled and the current values in the "
-                                                      + "database have been displayed. If you still want to delete this "
-                                                      + "record, click the Delete button again. Otherwise "
-                                                      + "click the Back to List hyperlink.";
+                ViewData["ConcurrencyErrorMessage"] = "The record was modified by another user after you got the original values. " +
+                    "If you still want to delete this record, click the Delete button again. Otherwise click Back to List.";
             }
 
             return View(department);
@@ -213,17 +181,16 @@ namespace Workforce.Controllers
         {
             try
             {
-                if (await _context.Departments.AnyAsync(m => m.DepartmentID == department.DepartmentID))
+                if (await _context.Departments.AnyAsync(d => d.DepartmentID == department.DepartmentID))
                 {
-                    _context.Departments.Remove(department);
+                    _context.Entry(department).State = EntityState.Deleted;
                     await _context.SaveChangesAsync();
                 }
                 return RedirectToAction(nameof(Index));
             }
-            catch (DbUpdateConcurrencyException /* ex */)
+            catch (DbUpdateConcurrencyException)
             {
-                //Log the error (uncomment ex variable name and write a log.)
-                return RedirectToAction(nameof(Delete), new { concurrencyError = true, id = department.DepartmentID });
+                return RedirectToAction(nameof(Delete), new { id = department.DepartmentID, concurrencyError = true });
             }
         }
 

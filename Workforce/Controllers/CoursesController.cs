@@ -22,26 +22,16 @@ namespace Workforce.Controllers
         // GET: Courses
         public async Task<IActionResult> Index()
         {
-            var schoolContext = _context.Courses.Include(c => c.Department);
-            return View(await schoolContext.ToListAsync());
+            var courses = await _context.Courses.Include(c => c.Department).ToListAsync();
+            return View(courses);
         }
 
         // GET: Courses/Details/5
         public async Task<IActionResult> Details(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
             var course = await _context.Courses
                 .Include(c => c.Department)
                 .FirstOrDefaultAsync(m => m.CourseID == id);
-            if (course == null)
-            {
-                return NotFound();
-            }
-
             return View(course);
         }
 
@@ -53,102 +43,44 @@ namespace Workforce.Controllers
         }
 
         // POST: Courses/Create
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("CourseID,Credits,DepartmentID,Title")] Course course)
         {
-            if (ModelState.IsValid)
-            {
-                _context.Add(course);
-                await _context.SaveChangesAsync();
-                return RedirectToAction(nameof(Index));
-            }
-            PopulateDepartmentsDropDownList(course.DepartmentID);
-            return View(course);
+            _context.Add(course);
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Courses/Edit/5
         public async Task<IActionResult> Edit(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
-            var course = await _context.Courses
-                .AsNoTracking()
-                .FirstOrDefaultAsync(m => m.CourseID == id);
-            if (course == null)
-            {
-                return NotFound();
-            }
-            PopulateDepartmentsDropDownList(course.DepartmentID);
+            var course = await _context.Courses.AsNoTracking().FirstOrDefaultAsync(m => m.CourseID == id);
+            PopulateDepartmentsDropDownList(course?.DepartmentID);
             return View(course);
         }
 
         // POST: Courses/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to, for 
-        // more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost, ActionName("Edit")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditPost(int? id)
         {
-            if (id == null)
+            var course = await _context.Courses.FirstOrDefaultAsync(c => c.CourseID == id);
+            if (course != null)
             {
-                return NotFound();
+                await TryUpdateModelAsync(course, "", c => c.Credits, c => c.DepartmentID, c => c.Title);
+                await _context.SaveChangesAsync();
             }
-
-            var courseToUpdate = await _context.Courses
-                .FirstOrDefaultAsync(c => c.CourseID == id);
-
-            if (await TryUpdateModelAsync<Course>(courseToUpdate,
-                "",
-                c => c.Credits, c => c.DepartmentID, c => c.Title))
-            {
-                try
-                {
-                    await _context.SaveChangesAsync();
-                }
-                catch (DbUpdateException /* ex */)
-                {
-                    //Log the error (uncomment ex variable name and write a log.)
-                    ModelState.AddModelError("", "Unable to save changes. " +
-                                                 "Try again, and if the problem persists, " +
-                                                 "see your system administrator.");
-                }
-                return RedirectToAction(nameof(Index));
-            }
-            PopulateDepartmentsDropDownList(courseToUpdate.DepartmentID);
-            return View(courseToUpdate);
-        }
-
-        private void PopulateDepartmentsDropDownList(object selectedDepartment = null)
-        {
-            var departmentsQuery = from d in _context.Departments
-                orderby d.Name
-                select d;
-            ViewBag.DepartmentID = new SelectList(departmentsQuery.AsNoTracking(), "DepartmentID", "Name", selectedDepartment);
+            return RedirectToAction(nameof(Index));
         }
 
         // GET: Courses/Delete/5
         public async Task<IActionResult> Delete(int? id)
         {
-            if (id == null)
-            {
-                return NotFound();
-            }
-
             var course = await _context.Courses
                 .Include(c => c.Department)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(m => m.CourseID == id);
-            if (course == null)
-            {
-                return NotFound();
-            }
-
             return View(course);
         }
 
@@ -158,18 +90,18 @@ namespace Workforce.Controllers
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var course = await _context.Courses.FindAsync(id);
-            _context.Courses.Remove(course);
-            await _context.SaveChangesAsync();
+            if (course != null)
+            {
+                _context.Courses.Remove(course);
+                await _context.SaveChangesAsync();
+            }
             return RedirectToAction(nameof(Index));
         }
 
-
-        //Update method
         public IActionResult UpdateCourseCredits()
         {
             return View();
         }
-
 
         [HttpPost]
         public async Task<IActionResult> UpdateCourseCredits(int? multiplier)
@@ -177,18 +109,18 @@ namespace Workforce.Controllers
             if (multiplier != null)
             {
                 ViewData["RowsAffected"] =
-                    await _context.Database.ExecuteSqlCommandAsync(
-                        "UPDATE Course SET Credits = Credits * {0}",
-                        parameters: multiplier);
+                    await _context.Database.ExecuteSqlRawAsync(
+                        "UPDATE Course SET Credits = Credits * {0}", multiplier);
             }
             return View();
         }
 
-
-
-        private bool CourseExists(int id)
+        private void PopulateDepartmentsDropDownList(object selectedDepartment = null)
         {
-            return _context.Courses.Any(e => e.CourseID == id);
+            var departments = _context.Departments.OrderBy(d => d.Name).AsNoTracking();
+            ViewBag.DepartmentID = new SelectList(departments, "DepartmentID", "Name", selectedDepartment);
         }
+
+        private bool CourseExists(int id) => true;
     }
 }
